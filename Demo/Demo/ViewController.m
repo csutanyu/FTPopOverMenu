@@ -54,9 +54,26 @@
     
     NSURL *icomImageURL = [NSURL URLWithString:icomImageURLString];
 
+    //[FTPopOverMenuConfiguration defaultConfiguration].customArrowImage = [UIImage imageNamed:@"bj_sanjiao"];
+    FTPopOverMenuConfiguration *configuration = [FTPopOverMenuConfiguration defaultConfiguration];
+    configuration.customArrowImage = [UIImage imageNamed:@"bj_sanjiao"];
+    configuration.borderColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+    configuration.tintColor = [[UIColor whiteColor] colorWithAlphaComponent:0.95];
+    configuration.textFont = [UIFont systemFontOfSize:15 weight:UIFontWeightLight];
+    configuration.textColor = [UIColor blackColor];
+    configuration.menuIconMargin = 13;
+    configuration.menuTextTrailMargin = 17;
+    configuration.menuIconSize = 30;
+    configuration.separatorColor = [UIColor clearColor];
+    configuration.highlightedTextColor = [UIColor redColor];
+    configuration.selectionStyle = UITableViewCellSelectionStyleNone;
+    configuration.maxMenuWidth = 280;
+    configuration.adaptiveMenuWidth = YES;
+  
     [FTPopOverMenu showForSender:sender
-                   withMenuArray:@[@"MenuOne", @"MenuTwo", @"MenuThree", @"MenuFour",]
+                   withMenuArray:@[@"MenuOne", @"MenuTwo", @"MenuThreeMenuThree", @"MenuFour",]
                       imageArray:@[icomImageURLString, icomImageURL, [UIImage imageNamed:@"Pokemon_Go_03"], @"Pokemon_Go_04"]
+       highlightedMenuImageArray:@[icomImageURLString, icomImageURL, [UIImage imageNamed:@"Pokemon_Go_04"], @"Pokemon_Go_03"]
                        doneBlock:^(NSInteger selectedIndex) {
                            
                            NSLog(@"done block. do something. selectedIndex : %ld", (long)selectedIndex);
@@ -68,7 +85,7 @@
 //                           FTPopOverMenuConfiguration *configuration = [FTPopOverMenuConfiguration defaultConfiguration];
 //                           configuration.allowRoundedArrow = !configuration.allowRoundedArrow;
                            
-                       }];
+                       } configuration:nil];
     
     
     

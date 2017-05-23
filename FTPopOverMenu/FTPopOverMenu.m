@@ -20,6 +20,7 @@
 #define FTDefaultBackgroundColor            [UIColor clearColor]
 #define FTDefaultTintColor                  [UIColor colorWithRed:80/255.f green:80/255.f blue:80/255.f alpha:1.f]
 #define FTDefaultTextColor                  [UIColor whiteColor]
+#define FTDefaultseparatorColor             [UIColor grayColor]
 #define FTDefaultMenuFont                   [UIFont systemFontOfSize:14.f]
 #define FTDefaultMenuWidth                  120.f
 #define FTDefaultMenuIconSize               24.f
@@ -49,7 +50,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 #pragma mark - FTPopOverMenuConfiguration
 
-@interface FTPopOverMenuConfiguration ()
+@interface FTPopOverMenuConfiguration () {
+  UIImage *_customArrowImage;
+}
 
 @end
 
@@ -69,19 +72,31 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     if (self) {
         self.menuRowHeight = FTDefaultMenuRowHeight;
         self.menuWidth = FTDefaultMenuWidth;
+        self.maxMenuWidth = CGFLOAT_MAX;
         self.textColor = FTDefaultTextColor;
         self.textFont = FTDefaultMenuFont;
         self.tintColor = FTDefaultTintColor;
         self.borderColor = FTDefaultTintColor;
         self.borderWidth = FTDefaultMenuBorderWidth;
         self.textAlignment = NSTextAlignmentLeft;
+        self.separatorColor = FTDefaultseparatorColor;
         self.ignoreImageOriginalColor = NO;
         self.allowRoundedArrow = NO;
         self.menuTextMargin = FTDefaultMenuTextMargin;
+        self.menuTextTrailMargin = self.menuTextMargin;
         self.menuIconMargin = FTDefaultMenuIconMargin;
+        self.menuIconSize = FTDefaultMenuIconSize;
         self.animationDuration = FTDefaultAnimationDuration;
     }
     return self;
+}
+
+- (UIImage *)customArrowImage {
+  return _customArrowImage;
+}
+
+- (void)setCustomArrowImage:(UIImage *)customArrowImage {
+  _customArrowImage = customArrowImage;
 }
 
 @end
@@ -92,6 +107,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 @property (nonatomic, strong) UIImageView *iconImageView;
 @property (nonatomic, strong) UILabel *menuNameLabel;
+@property (nonatomic, strong) id menuImage;
+@property (nonatomic, strong) id highlightedMenuImage;
+@property (nonatomic, strong) FTPopOverMenuConfiguration *configuration;
 
 @end
 
@@ -101,11 +119,15 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
              reuseIdentifier:(NSString *)reuseIdentifier
                     menuName:(NSString *)menuName
                    menuImage:(id )menuImage
+        highlightedMenuImage:(id )highlightedMenuImage
+               configuration:(FTPopOverMenuConfiguration *)configuration
 {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
         self.backgroundColor = [UIColor clearColor];
-        
+        self.menuImage = menuImage;
+        self.highlightedMenuImage = highlightedMenuImage;
+        self.configuration = configuration;
         [self setupWithMenuName:menuName menuImage:menuImage];
     }
     return self;
@@ -132,10 +154,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 -(void)setupWithMenuName:(NSString *)menuName menuImage:(id )menuImage
 {
-    FTPopOverMenuConfiguration *configuration = [FTPopOverMenuConfiguration defaultConfiguration];
-    
-    CGFloat margin = (configuration.menuRowHeight - FTDefaultMenuIconSize)/2.f;
-    CGRect iconImageRect = CGRectMake(configuration.menuIconMargin, margin, FTDefaultMenuIconSize, FTDefaultMenuIconSize);
+    FTPopOverMenuConfiguration *configuration = self.configuration;
+    CGFloat margin = (configuration.menuRowHeight - configuration.menuIconSize)/2.f;
+    CGRect iconImageRect = CGRectMake(configuration.menuIconMargin, margin, configuration.menuIconSize, configuration.menuIconSize);
     CGFloat menuNameX = iconImageRect.origin.x + iconImageRect.size.width + configuration.menuTextMargin;
     CGRect menuNameRect = CGRectMake(menuNameX, 0, configuration.menuWidth - menuNameX - configuration.menuTextMargin, configuration.menuRowHeight);
     
@@ -160,6 +181,25 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     self.menuNameLabel.textAlignment = configuration.textAlignment;
     self.menuNameLabel.text = menuName;
     [self.contentView addSubview:self.menuNameLabel];
+    self.selectionStyle = configuration.selectionStyle;;
+}
+
+- (void)setHighlighted:(BOOL)highlighted animated:(BOOL)animated {
+    [super setHighlighted:highlighted animated:animated];
+    
+    if (self.menuImage && self.highlightedMenuImage) {
+        self.iconImageView.tintColor = highlighted ? self.menuNameLabel.highlightedTextColor : self.menuNameLabel.textColor;
+        [self getImageWithResource:highlighted ? self.highlightedMenuImage : self.menuImage
+                        completion:^(UIImage *image) {
+                            if (self.configuration.ignoreImageOriginalColor) {
+                                image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+                            }
+                            _iconImageView.image = image;
+                        }];
+    }
+    if (self.configuration.highlightedTextColor) {
+        self.menuNameLabel.textColor = highlighted ? self.configuration.highlightedTextColor : self.configuration.textColor;
+    }
 }
 
 /**
@@ -256,10 +296,12 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 @property (nonatomic, strong) UITableView *menuTableView;
 @property (nonatomic, strong) NSArray<NSString *> *menuStringArray;
 @property (nonatomic, strong) NSArray *menuImageArray;
+@property (nonatomic, strong) NSArray *highlightedMenuImageArray;
 @property (nonatomic, assign) FTPopOverMenuArrowDirection arrowDirection;
 @property (nonatomic, strong) FTPopOverMenuDoneBlock doneBlock;
 @property (nonatomic, strong) CAShapeLayer *backgroundLayer;
-
+@property (nonatomic, strong) UIImageView *customArrowImageView;
+@property (nonatomic, strong) FTPopOverMenuConfiguration *configuration;
 
 @property (nonatomic, strong) UIColor *tintColor;
 
@@ -267,11 +309,40 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 @implementation FTPopOverMenuView
 
+-(CGFloat)widthWithIconArray:(NSArray *)iconArray titleArray:(NSArray*)titleArray {
+    CGFloat totalMaxWidth = 0;
+    if (iconArray.count != 0) {
+        totalMaxWidth += self.configuration.menuIconMargin + self.configuration.menuIconSize;
+    }
+    
+    CGFloat textMaxWidth = 0;
+    for (NSString *title in titleArray) {
+        CGSize size = [title sizeWithAttributes:@{NSFontAttributeName: self.configuration.textFont}];
+        if (textMaxWidth < size.width) {
+            textMaxWidth = size.width;
+        }
+    }
+    totalMaxWidth += self.configuration.menuTextMargin + self.configuration.menuTextTrailMargin + textMaxWidth;
+    
+    if ((self.configuration.maxMenuWidth != CGFLOAT_MAX && self.configuration.maxMenuWidth < totalMaxWidth)) {
+        totalMaxWidth = self.configuration.maxMenuWidth;
+    }
+    if (totalMaxWidth >= [UIScreen mainScreen].bounds.size.width) {
+        if (iconArray.count != 0) {
+            totalMaxWidth = [UIScreen mainScreen].bounds.size.width - self.configuration.menuIconMargin - self.configuration.menuTextTrailMargin;
+        } else {
+            totalMaxWidth = [UIScreen mainScreen].bounds.size.width - self.configuration.menuTextMargin - self.configuration.menuTextTrailMargin;
+        }
+    }
+    
+    return totalMaxWidth;
+}
+
 -(instancetype)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
-        
+        _configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     return self;
 }
@@ -281,7 +352,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     if (!_menuTableView) {
         _menuTableView = [[UITableView alloc]initWithFrame:CGRectZero style:UITableViewStylePlain];
         _menuTableView.backgroundColor = FTDefaultBackgroundColor;
-        _menuTableView.separatorColor = [UIColor grayColor];
+        _menuTableView.separatorColor = self.configuration.separatorColor;
         _menuTableView.layer.cornerRadius = FTDefaultMenuCornerRadius;
         _menuTableView.scrollEnabled = NO;
         _menuTableView.clipsToBounds = YES;
@@ -294,17 +365,34 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 -(CGFloat)menuArrowWidth
 {
-    return [FTPopOverMenuConfiguration defaultConfiguration].allowRoundedArrow ? FTDefaultMenuArrowWidth_R : FTDefaultMenuArrowWidth;
+    CGFloat width;
+    if (self.configuration.customArrowImage) {
+        width = self.configuration.customArrowImage.size.width;
+    } else if (self.configuration.allowRoundedArrow) {
+        width = FTDefaultMenuArrowWidth_R;
+    } else {
+        width = FTDefaultMenuArrowWidth;
+    }
+    return width;
 }
 -(CGFloat)menuArrowHeight
 {
-    return [FTPopOverMenuConfiguration defaultConfiguration].allowRoundedArrow ? FTDefaultMenuArrowHeight_R : FTDefaultMenuArrowHeight;
+    CGFloat height;
+    if (self.configuration.customArrowImage) {
+        height = self.configuration.customArrowImage.size.height;
+    } else if (self.configuration.allowRoundedArrow) {
+        height = FTDefaultMenuArrowHeight_R;
+    } else {
+        height = FTDefaultMenuArrowHeight;
+    }
+    return  height;
 }
 
 -(void)showWithFrame:(CGRect )frame
           anglePoint:(CGPoint )anglePoint
        withNameArray:(NSArray<NSString*> *)nameArray
       imageNameArray:(NSArray *)imageNameArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
     shouldAutoScroll:(BOOL)shouldAutoScroll
       arrowDirection:(FTPopOverMenuArrowDirection)arrowDirection
            doneBlock:(FTPopOverMenuDoneBlock)doneBlock
@@ -312,6 +400,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     self.frame = frame;
     _menuStringArray = nameArray;
     _menuImageArray = imageNameArray;
+    _highlightedMenuImageArray = highlightedMenuImageArray;
     _arrowDirection = arrowDirection;
     self.doneBlock = doneBlock;
     self.menuTableView.scrollEnabled = shouldAutoScroll;
@@ -331,28 +420,41 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     if (_backgroundLayer) {
         [_backgroundLayer removeFromSuperlayer];
     }
+    if (_customArrowImageView) {
+        [_customArrowImageView removeFromSuperview];
+    }
     
     UIBezierPath *path = [UIBezierPath bezierPath];
-    BOOL allowRoundedArrow = [FTPopOverMenuConfiguration defaultConfiguration].allowRoundedArrow;
+    BOOL allowRoundedArrow = self.configuration.allowRoundedArrow;
     CGFloat offset = 2.f*FTDefaultMenuArrowRoundRadius*sinf(M_PI_4/2.f);
     CGFloat roundcenterHeight = offset + FTDefaultMenuArrowRoundRadius*sqrtf(2.f);
     CGPoint roundcenterPoint = CGPointMake(anglePoint.x, roundcenterHeight);
+  
+    UIImageView *arrowImageView;
+    if (self.configuration.customArrowImage) {
+        arrowImageView = [[UIImageView alloc] init];
+        arrowImageView.image = self.configuration.customArrowImage;
+    }
     
     switch (_arrowDirection) {
         case FTPopOverMenuArrowDirectionUp:{
-
             if (allowRoundedArrow) {
                 [path addArcWithCenter:CGPointMake(anglePoint.x + self.menuArrowWidth, self.menuArrowHeight - 2.f*FTDefaultMenuArrowRoundRadius) radius:2.f*FTDefaultMenuArrowRoundRadius startAngle:M_PI_2 endAngle:M_PI_4*3.f clockwise:YES];
                 [path addLineToPoint:CGPointMake(anglePoint.x + FTDefaultMenuArrowRoundRadius/sqrtf(2.f), roundcenterPoint.y - FTDefaultMenuArrowRoundRadius/sqrtf(2.f))];
                 [path addArcWithCenter:roundcenterPoint radius:FTDefaultMenuArrowRoundRadius startAngle:M_PI_4*7.f endAngle:M_PI_4*5.f clockwise:NO];
                 [path addLineToPoint:CGPointMake(anglePoint.x - self.menuArrowWidth + (offset * (1.f+1.f/sqrtf(2.f))), self.menuArrowHeight - offset/sqrtf(2.f))];
                 [path addArcWithCenter:CGPointMake(anglePoint.x - self.menuArrowWidth, self.menuArrowHeight - 2.f*FTDefaultMenuArrowRoundRadius) radius:2.f*FTDefaultMenuArrowRoundRadius startAngle:M_PI_4 endAngle:M_PI_2 clockwise:YES];
+            } else if (arrowImageView) {
+                arrowImageView.frame = CGRectMake(anglePoint.x - self.menuArrowWidth / 2, 0, arrowImageView.image.size.width, arrowImageView.image.size.height);
+                [path moveToPoint:CGPointMake(anglePoint.x + self.menuArrowWidth, self.menuArrowHeight)];
+                arrowImageView.transform = CGAffineTransformRotate(CGAffineTransformIdentity, M_PI);
+                
             } else {
                 [path moveToPoint:CGPointMake(anglePoint.x + self.menuArrowWidth, self.menuArrowHeight)];
                 [path addLineToPoint:anglePoint];
                 [path addLineToPoint:CGPointMake( anglePoint.x - self.menuArrowWidth, self.menuArrowHeight)];
             }
-            
+          
             [path addLineToPoint:CGPointMake( FTDefaultMenuCornerRadius, self.menuArrowHeight)];
             [path addArcWithCenter:CGPointMake(FTDefaultMenuCornerRadius, self.menuArrowHeight + FTDefaultMenuCornerRadius) radius:FTDefaultMenuCornerRadius startAngle:-M_PI_2 endAngle:-M_PI clockwise:NO];
             [path addLineToPoint:CGPointMake( 0, self.bounds.size.height - FTDefaultMenuCornerRadius)];
@@ -365,7 +467,6 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
             
         }break;
         case FTPopOverMenuArrowDirectionDown:{
-            
             roundcenterPoint = CGPointMake(anglePoint.x, anglePoint.y - roundcenterHeight);
 
             if (allowRoundedArrow) {
@@ -374,6 +475,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
                 [path addArcWithCenter:roundcenterPoint radius:FTDefaultMenuArrowRoundRadius startAngle:M_PI_4 endAngle:M_PI_4*3.f clockwise:YES];
                 [path addLineToPoint:CGPointMake(anglePoint.x - self.menuArrowWidth + (offset * (1.f+1.f/sqrtf(2.f))), anglePoint.y - self.menuArrowHeight + offset/sqrtf(2.f))];
                 [path addArcWithCenter:CGPointMake(anglePoint.x - self.menuArrowWidth, anglePoint.y - self.menuArrowHeight + 2.f*FTDefaultMenuArrowRoundRadius) radius:2.f*FTDefaultMenuArrowRoundRadius startAngle:M_PI_4*7 endAngle:M_PI_2*3 clockwise:NO];
+            } else if (arrowImageView) {
+                arrowImageView.frame = CGRectMake(anglePoint.x - self.menuArrowWidth/2, self.bounds.size.height - arrowImageView.image.size.height, arrowImageView.image.size.width, arrowImageView.image.size.height);
+                [path moveToPoint:CGPointMake(anglePoint.x + self.menuArrowWidth, anglePoint.y - self.menuArrowHeight)];
             } else {
                 [path moveToPoint:CGPointMake(anglePoint.x + self.menuArrowWidth, anglePoint.y - self.menuArrowHeight)];
                 [path addLineToPoint:anglePoint];
@@ -397,12 +501,17 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     
     _backgroundLayer = [CAShapeLayer layer];
     _backgroundLayer.path = path.CGPath;
-    _backgroundLayer.lineWidth = [FTPopOverMenuConfiguration defaultConfiguration].borderWidth;
-    _backgroundLayer.fillColor = [FTPopOverMenuConfiguration defaultConfiguration].tintColor.CGColor;
-    _backgroundLayer.strokeColor = [FTPopOverMenuConfiguration defaultConfiguration].borderColor.CGColor;
+    _backgroundLayer.lineWidth = self.configuration.borderWidth;
+    _backgroundLayer.fillColor = self.configuration.tintColor.CGColor;
+    _backgroundLayer.strokeColor = self.configuration.borderColor.CGColor;
     [self.layer insertSublayer:_backgroundLayer atIndex:0];
-}
 
+    if (arrowImageView) {
+        self.customArrowImageView =  arrowImageView;
+        [self addSubview:arrowImageView];
+        
+    }
+}
 
 #pragma mark - UITableViewDelegate,UITableViewDataSource
 -(CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section
@@ -411,7 +520,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 }
 -(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    return [FTPopOverMenuConfiguration defaultConfiguration].menuRowHeight;
+    return self.configuration.menuRowHeight;
 }
 -(CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section
 {
@@ -429,14 +538,20 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     if (_menuImageArray.count - 1 >= indexPath.row) {
         menuImage = _menuImageArray[indexPath.row];
     }
+    id highlightedMenuImage;
+    if (_highlightedMenuImageArray.count - 1 >= indexPath.row) {
+        highlightedMenuImage = _highlightedMenuImageArray[indexPath.row];
+    }
     FTPopOverMenuCell *menuCell = [[FTPopOverMenuCell alloc]initWithStyle:UITableViewCellStyleDefault
                                                           reuseIdentifier:FTPopOverMenuTableViewCellIndentifier
                                                                  menuName:[NSString stringWithFormat:@"%@", _menuStringArray[indexPath.row]]
-                                                                menuImage:menuImage];
+                                                                menuImage:menuImage
+                                                     highlightedMenuImage:highlightedMenuImage
+                                                            configuration:self.configuration];
     if (indexPath.row == _menuStringArray.count-1) {
         menuCell.separatorInset = UIEdgeInsetsMake(0, self.bounds.size.width, 0, 0);
     }else{
-        menuCell.separatorInset = UIEdgeInsetsMake(0, [FTPopOverMenuConfiguration defaultConfiguration].menuTextMargin, 0, [FTPopOverMenuConfiguration defaultConfiguration].menuTextMargin);
+        menuCell.separatorInset = UIEdgeInsetsMake(0, self.configuration.menuTextMargin, 0, self.configuration.menuTextMargin);
     }
     return menuCell;
 }
@@ -465,6 +580,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 @property (nonatomic, assign) CGRect senderFrame;
 @property (nonatomic, strong) NSArray<NSString*> *menuArray;
 @property (nonatomic, strong) NSArray<NSString*> *menuImageArray;
+@property (nonatomic, strong) NSArray<NSString*> *highlightedMenuImageArray;
 @property (nonatomic, assign) BOOL isCurrentlyOnScreen;
 
 @end
@@ -486,7 +602,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showForSender:(UIView *)sender
@@ -495,7 +611,22 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showForSender:(UIView *)sender
+         withMenuArray:(NSArray<NSString*> *)menuArray
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration {
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromEvent:(UIEvent *)event
@@ -503,7 +634,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromEvent:(UIEvent *)event
@@ -512,7 +643,23 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromEvent:(UIEvent *)event
+         withMenuArray:(NSArray<NSString*> *)menuArray
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration
+{
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromSenderFrame:(CGRect )senderFrame
@@ -520,7 +667,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
                    doneBlock:(FTPopOverMenuDoneBlock)doneBlock
                 dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromSenderFrame:(CGRect )senderFrame
@@ -529,7 +676,23 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
                    doneBlock:(FTPopOverMenuDoneBlock)doneBlock
                 dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:imageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+                  imageArray:(NSArray *)imageArray
+       highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+               configuration:(FTPopOverMenuConfiguration *)configuration {
+    
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 +(void)dismiss
@@ -582,11 +745,11 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 -(CGFloat)menuArrowWidth
 {
-    return [FTPopOverMenuConfiguration defaultConfiguration].allowRoundedArrow ? FTDefaultMenuArrowWidth_R : FTDefaultMenuArrowWidth;
+    return self.popMenuView.configuration.allowRoundedArrow ? FTDefaultMenuArrowWidth_R : FTDefaultMenuArrowWidth;
 }
 -(CGFloat)menuArrowHeight
 {
-    return [FTPopOverMenuConfiguration defaultConfiguration].allowRoundedArrow ? FTDefaultMenuArrowHeight_R : FTDefaultMenuArrowHeight;
+    return self.popMenuView.configuration.allowRoundedArrow ? FTDefaultMenuArrowHeight_R : FTDefaultMenuArrowHeight;
 }
 
 -(void)onChangeStatusBarOrientationNotification:(NSNotification *)notification
@@ -602,17 +765,23 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
            senderFrame:(CGRect )senderFrame
               withMenu:(NSArray<NSString*> *)menuArray
         imageNameArray:(NSArray<NSString*> *)imageNameArray
+ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
+    if (self.popMenuView.configuration.adaptiveMenuWidth) {
+        CGFloat menuWidth = [self.popMenuView widthWithIconArray:imageNameArray titleArray:menuArray];
+        self.popMenuView.configuration.menuWidth = menuWidth;
+    }
+    
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.backgroundView addSubview:self.popMenuView];
         [[self backgroundWindow] addSubview:self.backgroundView];
-        
         self.sender = sender;
         self.senderFrame = senderFrame;
         self.menuArray = menuArray;
         self.menuImageArray = imageNameArray;
+        self.highlightedMenuImageArray = highlightedMenuImageArray;
         self.doneBlock = doneBlock;
         self.dismissBlock = dismissBlock;
         
@@ -638,7 +807,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
         senderRect.origin.y = KSCREEN_HEIGHT;
     }
     
-    CGFloat menuHeight = [FTPopOverMenuConfiguration defaultConfiguration].menuRowHeight * self.menuArray.count + self.menuArrowHeight;
+    CGFloat menuHeight = self.popMenuView.configuration.menuRowHeight * self.menuArray.count + self.menuArrowHeight;
     CGPoint menuArrowPoint = CGPointMake(senderRect.origin.x + (senderRect.size.width)/2, 0);
     CGFloat menuX = 0;
     CGRect menuRect = CGRectZero;
@@ -654,30 +823,30 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
         
     }
     
-    if (menuArrowPoint.x + [FTPopOverMenuConfiguration defaultConfiguration].menuWidth/2 + FTDefaultMargin > KSCREEN_WIDTH) {
-        menuArrowPoint.x = MIN(menuArrowPoint.x - (KSCREEN_WIDTH - [FTPopOverMenuConfiguration defaultConfiguration].menuWidth - FTDefaultMargin), [FTPopOverMenuConfiguration defaultConfiguration].menuWidth - self.menuArrowWidth - FTDefaultMargin);
-        menuX = KSCREEN_WIDTH - [FTPopOverMenuConfiguration defaultConfiguration].menuWidth - FTDefaultMargin;
-    }else if ( menuArrowPoint.x - [FTPopOverMenuConfiguration defaultConfiguration].menuWidth/2 - FTDefaultMargin < 0){
+    if (menuArrowPoint.x + self.popMenuView.configuration.menuWidth/2 + FTDefaultMargin > KSCREEN_WIDTH) {
+        menuArrowPoint.x = MIN(menuArrowPoint.x - (KSCREEN_WIDTH - self.popMenuView.configuration.menuWidth - FTDefaultMargin), self.popMenuView.configuration.menuWidth - self.menuArrowWidth - FTDefaultMargin);
+        menuX = KSCREEN_WIDTH - self.popMenuView.configuration.menuWidth - FTDefaultMargin;
+    }else if ( menuArrowPoint.x - self.popMenuView.configuration.menuWidth/2 - FTDefaultMargin < 0){
         menuArrowPoint.x = MAX( FTDefaultMenuCornerRadius + self.menuArrowWidth, menuArrowPoint.x - FTDefaultMargin);
         menuX = FTDefaultMargin;
     }else{
-        menuArrowPoint.x = [FTPopOverMenuConfiguration defaultConfiguration].menuWidth/2;
-        menuX = senderRect.origin.x + (senderRect.size.width)/2 - [FTPopOverMenuConfiguration defaultConfiguration].menuWidth/2;
+        menuArrowPoint.x = self.popMenuView.configuration.menuWidth/2;
+        menuX = senderRect.origin.x + (senderRect.size.width)/2 - self.popMenuView.configuration.menuWidth/2;
     }
     
     if (arrowDirection == FTPopOverMenuArrowDirectionUp) {
-        menuRect = CGRectMake(menuX, (senderRect.origin.y + senderRect.size.height), [FTPopOverMenuConfiguration defaultConfiguration].menuWidth, menuHeight);
+        menuRect = CGRectMake(menuX, (senderRect.origin.y + senderRect.size.height), self.popMenuView.configuration.menuWidth, menuHeight);
         // if too long and is out of screen
         if (menuRect.origin.y + menuRect.size.height > KSCREEN_HEIGHT) {
-            menuRect = CGRectMake(menuX, (senderRect.origin.y + senderRect.size.height), [FTPopOverMenuConfiguration defaultConfiguration].menuWidth, KSCREEN_HEIGHT - menuRect.origin.y - FTDefaultMargin);
+            menuRect = CGRectMake(menuX, (senderRect.origin.y + senderRect.size.height), self.popMenuView.configuration.menuWidth, KSCREEN_HEIGHT - menuRect.origin.y - FTDefaultMargin);
             shouldAutoScroll = YES;
         }
     }else{
         
-        menuRect = CGRectMake(menuX, (senderRect.origin.y - menuHeight), [FTPopOverMenuConfiguration defaultConfiguration].menuWidth, menuHeight);
+        menuRect = CGRectMake(menuX, (senderRect.origin.y - menuHeight), self.popMenuView.configuration.menuWidth, menuHeight);
         // if too long and is out of screen
         if (menuRect.origin.y  < 0) {
-            menuRect = CGRectMake(menuX, FTDefaultMargin, [FTPopOverMenuConfiguration defaultConfiguration].menuWidth, senderRect.origin.y - FTDefaultMargin);
+            menuRect = CGRectMake(menuX, FTDefaultMargin, self.popMenuView.configuration.menuWidth, senderRect.origin.y - FTDefaultMargin);
             menuArrowPoint.y = senderRect.origin.y;
             shouldAutoScroll = YES;
         }
@@ -704,6 +873,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
                      anglePoint:menuArrowPoint
                   withNameArray:self.menuArray
                  imageNameArray:self.menuImageArray
+      highlightedMenuImageArray:self.highlightedMenuImageArray
                shouldAutoScroll:shouldAutoScroll
                  arrowDirection:arrowDirection
                       doneBlock:^(NSInteger selectedIndex) {
@@ -744,7 +914,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     CGPoint point = [touch locationInView:_popMenuView];
     if ([NSStringFromClass([touch.view class]) isEqualToString:@"UITableViewCellContentView"]) {
         return NO;
-    }else if (CGRectContainsPoint(CGRectMake(0, 0, [FTPopOverMenuConfiguration defaultConfiguration].menuWidth, [FTPopOverMenuConfiguration defaultConfiguration].menuRowHeight), point)) {
+    }else if (CGRectContainsPoint(CGRectMake(0, 0, self.popMenuView.configuration.menuWidth, self.popMenuView.configuration.menuRowHeight), point)) {
         [self doneActionWithSelectedIndex:0];
         return NO;
     }
