@@ -83,7 +83,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
         self.ignoreImageOriginalColor = NO;
         self.allowRoundedArrow = NO;
         self.menuTextMargin = FTDefaultMenuTextMargin;
-        self.menuTextTrailMargin = self.menuTextMargin;
+        self.menuTextTrailMargin = FTDefaultMenuTextMargin;
         self.menuIconMargin = FTDefaultMenuIconMargin;
         self.menuIconSize = FTDefaultMenuIconSize;
         self.animationDuration = FTDefaultAnimationDuration;
@@ -107,6 +107,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 @property (nonatomic, strong) UIImageView *iconImageView;
 @property (nonatomic, strong) UILabel *menuNameLabel;
+@property (nonatomic) BOOL defaultSelected;
 @property (nonatomic, strong) id menuImage;
 @property (nonatomic, strong) id highlightedMenuImage;
 @property (nonatomic, strong) FTPopOverMenuConfiguration *configuration;
@@ -118,6 +119,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 -(instancetype)initWithStyle:(UITableViewCellStyle)style
              reuseIdentifier:(NSString *)reuseIdentifier
                     menuName:(NSString *)menuName
+             defaultSelected:(BOOL)defaultSelected
                    menuImage:(id )menuImage
         highlightedMenuImage:(id )highlightedMenuImage
                configuration:(FTPopOverMenuConfiguration *)configuration
@@ -125,6 +127,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
         self.backgroundColor = [UIColor clearColor];
+        self.defaultSelected = defaultSelected;
         self.menuImage = menuImage;
         self.highlightedMenuImage = highlightedMenuImage;
         self.configuration = configuration;
@@ -158,15 +161,19 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     CGFloat margin = (configuration.menuRowHeight - configuration.menuIconSize)/2.f;
     CGRect iconImageRect = CGRectMake(configuration.menuIconMargin, margin, configuration.menuIconSize, configuration.menuIconSize);
     CGFloat menuNameX = iconImageRect.origin.x + iconImageRect.size.width + configuration.menuTextMargin;
-    CGRect menuNameRect = CGRectMake(menuNameX, 0, configuration.menuWidth - menuNameX - configuration.menuTextMargin, configuration.menuRowHeight);
+    CGRect menuNameRect = CGRectMake(menuNameX, 0, configuration.menuWidth - menuNameX - configuration.menuTextTrailMargin, configuration.menuRowHeight);
     
-    if (!menuImage) {
-        menuNameRect = CGRectMake(configuration.menuTextMargin, 0, configuration.menuWidth - configuration.menuTextMargin*2, configuration.menuRowHeight);
+    id displayMenuImage = menuImage;
+    if (self.defaultSelected && self.highlightedMenuImage) {
+        displayMenuImage = self.highlightedMenuImage;
+    }
+    if (!displayMenuImage) {
+        menuNameRect = CGRectMake(configuration.menuTextMargin, 0, configuration.menuWidth - configuration.menuTextMargin - configuration.menuTextTrailMargin, configuration.menuRowHeight);
     }else{
         self.iconImageView.frame = iconImageRect;
         self.iconImageView.tintColor = configuration.textColor;
         
-        [self getImageWithResource:menuImage
+        [self getImageWithResource:displayMenuImage
                         completion:^(UIImage *image) {
                             if (configuration.ignoreImageOriginalColor) {
                                 image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
@@ -177,7 +184,7 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
     }
     self.menuNameLabel.frame = menuNameRect;
     self.menuNameLabel.font = configuration.textFont;
-    self.menuNameLabel.textColor = configuration.textColor;
+    self.menuNameLabel.textColor = self.defaultSelected && configuration.highlightedTextColor != nil ? configuration.highlightedTextColor : configuration.textColor;
     self.menuNameLabel.textAlignment = configuration.textAlignment;
     self.menuNameLabel.text = menuName;
     [self.contentView addSubview:self.menuNameLabel];
@@ -186,7 +193,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 - (void)setHighlighted:(BOOL)highlighted animated:(BOOL)animated {
     [super setHighlighted:highlighted animated:animated];
-    
+    if (self.defaultSelected) {
+        return;
+    }
     if (self.menuImage && self.highlightedMenuImage) {
         self.iconImageView.tintColor = highlighted ? self.menuNameLabel.highlightedTextColor : self.menuNameLabel.textColor;
         [self getImageWithResource:highlighted ? self.highlightedMenuImage : self.menuImage
@@ -302,6 +311,8 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 @property (nonatomic, strong) CAShapeLayer *backgroundLayer;
 @property (nonatomic, strong) UIImageView *customArrowImageView;
 @property (nonatomic, strong) FTPopOverMenuConfiguration *configuration;
+@property (nonatomic) NSInteger defaultSelectedIndex;
+@property (nonatomic, strong) NSIndexPath *currentHighlightIndexPath;
 
 @property (nonatomic, strong) UIColor *tintColor;
 
@@ -545,6 +556,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
     FTPopOverMenuCell *menuCell = [[FTPopOverMenuCell alloc]initWithStyle:UITableViewCellStyleDefault
                                                           reuseIdentifier:FTPopOverMenuTableViewCellIndentifier
                                                                  menuName:[NSString stringWithFormat:@"%@", _menuStringArray[indexPath.row]]
+                                                          defaultSelected:self.defaultSelectedIndex == indexPath.row && self.currentHighlightIndexPath == nil
                                                                 menuImage:menuImage
                                                      highlightedMenuImage:highlightedMenuImage
                                                             configuration:self.configuration];
@@ -555,6 +567,23 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
     }
     return menuCell;
 }
+
+- (BOOL)tableView:(UITableView *)tableView shouldHighlightRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.defaultSelectedIndex != NSNotFound && indexPath.row != self.defaultSelectedIndex) {
+        self.currentHighlightIndexPath = indexPath;
+        [tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:self.defaultSelectedIndex inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
+    }
+    return YES;
+}
+
+- (void)tableView:(UITableView *)tableView didUnhighlightRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSIndexPath *preHighlightIndexPath = self.currentHighlightIndexPath;
+    self.currentHighlightIndexPath = nil;
+    if (self.defaultSelectedIndex != NSNotFound && preHighlightIndexPath.row != self.defaultSelectedIndex) {
+        [tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:self.defaultSelectedIndex inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
+    }
+}
+
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
@@ -602,7 +631,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showForSender:(UIView *)sender
@@ -611,7 +640,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showForSender:(UIView *)sender
@@ -626,7 +655,23 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
         popOverMenu.popMenuView.configuration = configuration;
     }
     
-    [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showForSender:(UIView *)sender
+         withMenuArray:(NSArray<NSString*> *)menuArray
+  defaultSelectedIndex:(NSInteger)defaultSelectedIndex
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration {
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromEvent:(UIEvent *)event
@@ -634,7 +679,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromEvent:(UIEvent *)event
@@ -643,7 +688,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
 {
-    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+    [[self sharedInstance] showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 + (void) showFromEvent:(UIEvent *)event
@@ -659,40 +704,71 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
         popOverMenu.popMenuView.configuration = configuration;
     }
     
-    [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
-+ (void) showFromSenderFrame:(CGRect )senderFrame
-               withMenuArray:(NSArray<NSString*> *)menuArray
-                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
-                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
-{
-    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
-}
-
-+ (void) showFromSenderFrame:(CGRect )senderFrame
-               withMenuArray:(NSArray<NSString*> *)menuArray
-                  imageArray:(NSArray *)imageArray
-                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
-                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
-{
-    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
-}
-
-+ (void) showFromSenderFrame:(CGRect )senderFrame
-               withMenuArray:(NSArray<NSString*> *)menuArray
-                  imageArray:(NSArray *)imageArray
-       highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
-                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
-                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
-               configuration:(FTPopOverMenuConfiguration *)configuration {
-    
++ (void) showFromEvent:(UIEvent *)event
+         withMenuArray:(NSArray<NSString*> *)menuArray
+  defaultSelectedIndex:(NSInteger)defaultSelectedIndex
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration {
     FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
     }
     
-    [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+    [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+{
+    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:nil highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+                  imageArray:(NSArray *)imageArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+{
+    [[self sharedInstance] showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:nil doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+                  imageArray:(NSArray *)imageArray
+   highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+               configuration:(FTPopOverMenuConfiguration *)configuration {
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
+}
+
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+               defaultSelectedIndex:(NSInteger)defaultSelectedIndex
+                  imageArray:(NSArray *)imageArray
+   highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+               configuration:(FTPopOverMenuConfiguration *)configuration {
+    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    if (configuration) {
+        popOverMenu.popMenuView.configuration = configuration;
+    }
+    
+    [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
 }
 
 +(void)dismiss
@@ -764,6 +840,7 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
 - (void) showForSender:(UIView *)sender
            senderFrame:(CGRect )senderFrame
               withMenu:(NSArray<NSString*> *)menuArray
+         defaultSelectedIndex:(NSInteger)defaultSelectedIndex
         imageNameArray:(NSArray<NSString*> *)imageNameArray
  highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
@@ -773,6 +850,8 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
         CGFloat menuWidth = [self.popMenuView widthWithIconArray:imageNameArray titleArray:menuArray];
         self.popMenuView.configuration.menuWidth = menuWidth;
     }
+    self.popMenuView.defaultSelectedIndex = defaultSelectedIndex;
+    
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.backgroundView addSubview:self.popMenuView];

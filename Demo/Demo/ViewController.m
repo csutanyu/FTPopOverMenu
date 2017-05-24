@@ -62,7 +62,8 @@
     configuration.textFont = [UIFont systemFontOfSize:15 weight:UIFontWeightLight];
     configuration.textColor = [UIColor blackColor];
     configuration.menuIconMargin = 13;
-    configuration.menuTextTrailMargin = 17;
+    configuration.menuTextTrailMargin = 20;
+    configuration.menuTextMargin = 20;
     configuration.menuIconSize = 30;
     configuration.separatorColor = [UIColor clearColor];
     configuration.highlightedTextColor = [UIColor redColor];
@@ -71,7 +72,8 @@
     configuration.adaptiveMenuWidth = YES;
   
     [FTPopOverMenu showForSender:sender
-                   withMenuArray:@[@"MenuOne", @"MenuTwo", @"MenuThreeMenuThree", @"MenuFour",]
+                   withMenuArray:@[@"MenuOne", @"MenuTwo", @"MenuThreeMenuThree", @"MenuFour"]
+     defaultSelectedIndex:2
                       imageArray:@[icomImageURLString, icomImageURL, [UIImage imageNamed:@"Pokemon_Go_03"], @"Pokemon_Go_04"]
        highlightedMenuImageArray:@[icomImageURLString, icomImageURL, [UIImage imageNamed:@"Pokemon_Go_04"], @"Pokemon_Go_03"]
                        doneBlock:^(NSInteger selectedIndex) {

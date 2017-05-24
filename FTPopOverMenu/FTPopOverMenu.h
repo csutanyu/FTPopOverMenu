@@ -25,7 +25,7 @@ typedef void (^FTPopOverMenuDismissBlock)();
 @interface FTPopOverMenuConfiguration : NSObject
 
 @property (nonatomic, assign)CGFloat menuTextMargin;// Default is 6.
-@property (nonatomic, assign)CGFloat menuTextTrailMargin; // Default is equal to menuTextMargin. Just meaningful when adaptiveMenuWidth == YES
+@property (nonatomic, assign)CGFloat menuTextTrailMargin; // Default is 6.
 @property (nonatomic, assign)CGFloat menuIconMargin;// Default is 6.
 @property (nonatomic, assign)CGFloat menuIconSize;// Default is 24
 @property (nonatomic, assign)CGFloat menuRowHeight;
@@ -121,6 +121,27 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
          configuration:(FTPopOverMenuConfiguration *)configuration;
 
 /**
+ show method with sender and image resouce Array
+ 
+ @param sender sender
+ @param menuArray menuArray
+ @param defaultSelectedIndex defaultSelectedIndex
+ @param imageArray imageArray
+ @param highlightedMenuImageArray highlightedMenuImageArray
+ @param doneBlock doneBlock
+ @param dismissBlock dismissBlock
+ @param configuration configuration
+ */
++ (void) showForSender:(UIView *)sender
+         withMenuArray:(NSArray<NSString*> *)menuArray
+  defaultSelectedIndex:(NSInteger)defaultSelectedIndex
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration;
+
+/**
  show method for barbuttonitems with event without images
 
  @param event event
@@ -168,6 +189,27 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
          configuration:(FTPopOverMenuConfiguration *)configuration;
 
 /**
+ show method for barbuttonitems with event and imageArray
+ 
+ @param event event
+ @param menuArray menuArray
+ @param defaultSelectedIndex defaultSelectedIndex
+ @param imageArray imageArray
+ @param highlightedMenuImageArray highlightedMenuImageArray
+ @param doneBlock doneBlock
+ @param dismissBlock dismissBlock
+ @param configuration configuration
+ */
++ (void) showFromEvent:(UIEvent *)event
+         withMenuArray:(NSArray<NSString*> *)menuArray
+  defaultSelectedIndex:(NSInteger)defaultSelectedIndex
+            imageArray:(NSArray *)imageArray
+highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+             doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+          dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+         configuration:(FTPopOverMenuConfiguration *)configuration;
+
+/**
  show method with SenderFrame without images
 
  @param senderFrame senderFrame
@@ -208,6 +250,27 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
  */
 + (void) showFromSenderFrame:(CGRect )senderFrame
                withMenuArray:(NSArray<NSString*> *)menuArray
+                  imageArray:(NSArray *)imageArray
+   highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
+                   doneBlock:(FTPopOverMenuDoneBlock)doneBlock
+                dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
+               configuration:(FTPopOverMenuConfiguration *)configuration;
+
+/**
+ show method with SenderFrame and image resouce Array
+ 
+ @param senderFrame senderFrame
+ @param menuArray menuArray
+ @param defaultSelectedIndex defaultSelectedIndex
+ @param imageArray imageArray
+ @param highlightedMenuImageArray highlightedMenuImageArray
+ @param doneBlock doneBlock
+ @param dismissBlock dismissBlock
+ @param configuration configuration
+ */
++ (void) showFromSenderFrame:(CGRect )senderFrame
+               withMenuArray:(NSArray<NSString*> *)menuArray
+        defaultSelectedIndex:(NSInteger)defaultSelectedIndex
                   imageArray:(NSArray *)imageArray
        highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
                    doneBlock:(FTPopOverMenuDoneBlock)doneBlock
