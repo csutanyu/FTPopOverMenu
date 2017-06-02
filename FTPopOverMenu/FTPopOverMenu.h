@@ -30,6 +30,7 @@ typedef void (^FTPopOverMenuDismissBlock)();
 @property (nonatomic, assign)CGFloat menuIconSize;// Default is 24
 @property (nonatomic, assign)CGFloat menuRowHeight;
 @property (nonatomic, assign)CGFloat menuWidth;
+@property (nonatomic, assign)CGFloat menuOffset; // Default is 0
 @property (nonatomic, assign)BOOL adaptiveMenuWidth; // Default is NO
 @property (nonatomic, assign)CGFloat maxMenuWidth; // Default is [UIScreen mainScreen].bounds.width - menuTextMargin - menuTextTrailMargin. Just meaningful when adaptiveMenuWidth == YES
 @property (nonatomic, strong)UIColor *textColor;
