@@ -73,7 +73,9 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
         self.menuRowHeight = FTDefaultMenuRowHeight;
         self.menuWidth = FTDefaultMenuWidth;
         self.maxMenuWidth = CGFLOAT_MAX;
-        self.menuOffset = 0;
+        self.arrowOffsetWithSender = 0;
+        self.additiveTopSpace = 0;
+        self.additiveBottomSpace = 0;
         self.textColor = FTDefaultTextColor;
         self.textFont = FTDefaultMenuFont;
         self.tintColor = FTDefaultTintColor;
@@ -98,6 +100,14 @@ typedef NS_ENUM(NSUInteger, FTPopOverMenuArrowDirection) {
 
 - (void)setCustomArrowImage:(UIImage *)customArrowImage {
   _customArrowImage = customArrowImage;
+}
+
+- (void)setAdditiveTopSpace:(CGFloat)additiveTopSpace {
+    _additiveTopSpace = additiveTopSpace >= 0 ? additiveTopSpace : 0;
+}
+
+- (void)setAdditiveBottomSpace:(CGFloat)additiveBottomSpace {
+    _additiveBottomSpace = additiveBottomSpace >= 0 ? additiveBottomSpace : 0;
 }
 
 @end
@@ -418,9 +428,9 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
     self.menuTableView.scrollEnabled = shouldAutoScroll;
     
     
-    CGRect menuRect = CGRectMake(0, self.menuArrowHeight, self.frame.size.width, self.frame.size.height - self.menuArrowHeight);
+    CGRect menuRect = CGRectMake(0, self.menuArrowHeight + self.configuration.additiveTopSpace, self.frame.size.width, self.frame.size.height - self.menuArrowHeight);
     if (_arrowDirection == FTPopOverMenuArrowDirectionDown) {
-        menuRect = CGRectMake(0, 0, self.frame.size.width, self.frame.size.height - self.menuArrowHeight);
+        menuRect = CGRectMake(0, self.configuration.additiveTopSpace, self.frame.size.width, self.frame.size.height - self.menuArrowHeight);
     }
     [self.menuTableView setFrame:menuRect];
     [self.menuTableView reloadData];
@@ -910,13 +920,13 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
     } else{
         arrowDirection = FTPopOverMenuArrowDirectionDown;
     }
-    senderRect = CGRectMake(senderRect.origin.x, arrowDirection == FTPopOverMenuArrowDirectionUp ? senderRect.origin.y + self.popMenuView.configuration.menuOffset : senderRect.origin.y - self.popMenuView.configuration.menuOffset, senderRect.size.width, senderRect.size.height);
+    senderRect = CGRectMake(senderRect.origin.x, arrowDirection == FTPopOverMenuArrowDirectionUp ? senderRect.origin.y + self.popMenuView.configuration.arrowOffsetWithSender : senderRect.origin.y - self.popMenuView.configuration.arrowOffsetWithSender, senderRect.size.width, senderRect.size.height);
     
     if (senderRect.origin.y > KSCREEN_HEIGHT) {
         senderRect.origin.y = KSCREEN_HEIGHT;
     }
     
-    CGFloat menuHeight = self.popMenuView.configuration.menuRowHeight * self.menuArray.count + self.menuArrowHeight;
+    CGFloat menuHeight = self.popMenuView.configuration.menuRowHeight * self.menuArray.count + self.menuArrowHeight + self.popMenuView.configuration.additiveTopSpace + self.popMenuView.configuration.additiveBottomSpace;
     if (self.popMenuView.configuration.customArrowImage) {
         menuHeight += self.popMenuView.configuration.borderWidth/2;
     }
