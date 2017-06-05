@@ -682,9 +682,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
          configuration:(FTPopOverMenuConfiguration *)configuration {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
@@ -698,9 +700,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
          configuration:(FTPopOverMenuConfiguration *)configuration {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:sender senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
@@ -731,9 +735,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
          configuration:(FTPopOverMenuConfiguration *)configuration
 {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
@@ -747,9 +753,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
              doneBlock:(FTPopOverMenuDoneBlock)doneBlock
           dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
          configuration:(FTPopOverMenuConfiguration *)configuration {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:[event.allTouches.anyObject view] senderFrame:CGRectNull withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
@@ -779,9 +787,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
                    doneBlock:(FTPopOverMenuDoneBlock)doneBlock
                 dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
                configuration:(FTPopOverMenuConfiguration *)configuration {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:NSNotFound imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
@@ -795,9 +805,11 @@ highlightedMenuImageArray:(NSArray *)highlightedMenuImageArray
                    doneBlock:(FTPopOverMenuDoneBlock)doneBlock
                 dismissBlock:(FTPopOverMenuDismissBlock)dismissBlock
                configuration:(FTPopOverMenuConfiguration *)configuration {
-    FTPopOverMenu *popOverMenu = [[FTPopOverMenu alloc] init];
+    FTPopOverMenu *popOverMenu = [self sharedInstance];
     if (configuration) {
         popOverMenu.popMenuView.configuration = configuration;
+    } else {
+        popOverMenu.popMenuView.configuration = [FTPopOverMenuConfiguration defaultConfiguration];
     }
     
     [popOverMenu showForSender:nil senderFrame:senderFrame withMenu:menuArray defaultSelectedIndex:defaultSelectedIndex imageNameArray:imageArray highlightedMenuImageArray:highlightedMenuImageArray doneBlock:doneBlock dismissBlock:dismissBlock];
